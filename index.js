@@ -8,22 +8,20 @@ import sharp from "sharp";
 const app = express();
 const PORT = 3016;
 
-// Cache directory
 const CACHE_DIR = path.join(process.cwd(), "tile-cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-// Jawg Maps access token
 const ACCESS_TOKEN = "I386DWaILL5kmhLxTaogYBl9mFQR3TzqHSCmzfNtPCGqEC6c08ZIC1WURPiXzFZ8";
 
-// Logging middleware
 app.use(morgan("dev"));
 
-// Color replacement config
-const TARGET_RGB = [16, 78, 55];     // #104e37
-const REPLACE_RGB = [0, 255, 255];   // Neon blue #00ffff
+// Check if pixel is greenish
+function isGreen(r: number, g: number, b: number) {
+  return g > 100 && g > r + 20 && g > b + 20;
+}
 
-// Replace color function using Sharp
-async function replaceColor(buffer) {
+// Convert greenish pixels to neon blue
+async function convertGreenToBlue(buffer: Buffer): Promise<Buffer> {
   const { data, info } = await sharp(buffer)
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -33,10 +31,11 @@ async function replaceColor(buffer) {
     const g = data[i + 1];
     const b = data[i + 2];
 
-    if (r === TARGET_RGB[0] && g === TARGET_RGB[1] && b === TARGET_RGB[2]) {
-      data[i] = REPLACE_RGB[0];
-      data[i + 1] = REPLACE_RGB[1];
-      data[i + 2] = REPLACE_RGB[2];
+    if (isGreen(r, g, b)) {
+      // Convert to neon blue (light cyan tone)
+      data[i] = 0;     // R
+      data[i + 1] = 255; // G (optional, for neon look)
+      data[i + 2] = 255; // B
     }
   }
 
@@ -49,7 +48,7 @@ async function replaceColor(buffer) {
   }).png().toBuffer();
 }
 
-// Main tile handler
+// Route handler
 app.get("/tiles/:z/:x/:y", async (req, res) => {
   const { z, x, y } = req.params;
   const filePath = path.join(CACHE_DIR, z, x);
@@ -66,9 +65,7 @@ app.get("/tiles/:z/:x/:y", async (req, res) => {
     if (!response.ok) throw new Error(`Tile request failed: ${response.status}`);
 
     const originalBuffer = await response.buffer();
-
-    // Replace target color with neon blue
-    const processedBuffer = await replaceColor(originalBuffer);
+    const processedBuffer = await convertGreenToBlue(originalBuffer);
 
     fs.mkdirSync(filePath, { recursive: true });
     fs.writeFileSync(fileName, processedBuffer);
