@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 import morgan from "morgan";
-import sharp from "sharp"; // Add sharp for image processing
+import sharp from "sharp";
 
 const app = express();
 const PORT = 3016;
@@ -36,11 +36,11 @@ app.get("/tiles/:z/:x/:y", async (req, res) => {
 
     const buffer = await response.buffer();
 
-    // Process the image to shift green tones to blue using sharp
+    // Process the image to shift toward blue tones
     const processedBuffer = await sharp(buffer)
       .modulate({
-        hue: 180, // Shift hues toward blue (hue rotation by 180 degrees)
-        saturation: 1.2, // Slightly increase saturation for vibrancy
+        hue: 120, // Shift hues toward blue (120° shift from green)
+        saturation: 1.3, // Boost saturation for vibrant blue
         brightness: 1, // Maintain brightness
       })
       .toBuffer();
