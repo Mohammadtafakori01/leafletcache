@@ -3,52 +3,22 @@ import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 import morgan from "morgan";
-import sharp from "sharp";
+import sharp from "sharp"; // Add sharp for image processing
 
 const app = express();
 const PORT = 3016;
 
+// Cache directory
 const CACHE_DIR = path.join(process.cwd(), "tile-cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
+// Jawg Maps access token (replace with your real token)
 const ACCESS_TOKEN = "I386DWaILL5kmhLxTaogYBl9mFQR3TzqHSCmzfNtPCGqEC6c08ZIC1WURPiXzFZ8";
 
+// Middleware: logging
 app.use(morgan("dev"));
 
-// Check if pixel is greenish
-function isGreen(r, g, b) {
-  return g > 100 && g > r + 20 && g > b + 20;
-}
-
-// Convert greenish pixels to neon blue
-async function convertGreenToBlue(buffer){
-  const { data, info } = await sharp(buffer)
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  for (let i = 0; i < data.length; i += info.channels) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-
-    if (isGreen(r, g, b)) {
-      // Convert to neon blue (light cyan tone)
-      data[i] = 0;     // R
-      data[i + 1] = 255; // G (optional, for neon look)
-      data[i + 2] = 255; // B
-    }
-  }
-
-  return sharp(data, {
-    raw: {
-      width: info.width,
-      height: info.height,
-      channels: info.channels,
-    },
-  }).png().toBuffer();
-}
-
-// Route handler
+// Serve cached tiles or fetch from Jawg Maps
 app.get("/tiles/:z/:x/:y", async (req, res) => {
   const { z, x, y } = req.params;
   const filePath = path.join(CACHE_DIR, z, x);
@@ -64,9 +34,18 @@ app.get("/tiles/:z/:x/:y", async (req, res) => {
 
     if (!response.ok) throw new Error(`Tile request failed: ${response.status}`);
 
-    const originalBuffer = await response.buffer();
-    const processedBuffer = await convertGreenToBlue(originalBuffer);
+    const buffer = await response.buffer();
 
+    // Process the image to shift green tones to blue using sharp
+    const processedBuffer = await sharp(buffer)
+      .modulate({
+        hue: 180, // Shift hues toward blue (hue rotation by 180 degrees)
+        saturation: 1.2, // Slightly increase saturation for vibrancy
+        brightness: 1, // Maintain brightness
+      })
+      .toBuffer();
+
+    // Save the processed image to cache
     fs.mkdirSync(filePath, { recursive: true });
     fs.writeFileSync(fileName, processedBuffer);
 
@@ -74,7 +53,7 @@ app.get("/tiles/:z/:x/:y", async (req, res) => {
     res.send(processedBuffer);
   } catch (err) {
     console.error(err);
-    res.status(500).send("Error processing tile");
+    res.status(500).send("Error fetching or processing tile");
   }
 });
 
