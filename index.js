@@ -16,12 +16,12 @@ const ACCESS_TOKEN = "I386DWaILL5kmhLxTaogYBl9mFQR3TzqHSCmzfNtPCGqEC6c08ZIC1WURP
 app.use(morgan("dev"));
 
 // Check if pixel is greenish
-function isGreen(r: number, g: number, b: number) {
+function isGreen(r, g, b) {
   return g > 100 && g > r + 20 && g > b + 20;
 }
 
 // Convert greenish pixels to neon blue
-async function convertGreenToBlue(buffer: Buffer): Promise<Buffer> {
+async function convertGreenToBlue(buffer){
   const { data, info } = await sharp(buffer)
     .raw()
     .toBuffer({ resolveWithObject: true });
