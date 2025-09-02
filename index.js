@@ -12,13 +12,13 @@ const PORT = 3016;
 const CACHE_DIR = path.join(process.cwd(), "tile-cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-// Jawg Maps access token (replace with your real token)
-const ACCESS_TOKEN = "I386DWaILL5kmhLxTaogYBl9mFQR3TzqHSCmzfNtPCGqEC6c08ZIC1WURPiXzFZ8";
+// Thunderforest API key (replace with your real key)
+const THUNDERFOREST_APIKEY = "0dd82b85e41a44c58057afd7e1a25ed9";
 
 // Middleware: logging
 app.use(morgan("dev"));
 
-// Serve cached tiles or fetch from Jawg Maps
+// Serve cached tiles or fetch from Thunderforest
 app.get("/tiles/:z/:x/:y", async (req, res) => {
   const { z, x, y } = req.params;
   const filePath = path.join(CACHE_DIR, z, x);
@@ -29,23 +29,23 @@ app.get("/tiles/:z/:x/:y", async (req, res) => {
   }
 
   try {
-    const url = `https://tile.jawg.io/jawg-matrix/${z}/${x}/${y}.png?access-token=${ACCESS_TOKEN}`;
+    const url = `https://tile.thunderforest.com/transport/${z}/${x}/${y}.png?apikey=${THUNDERFOREST_APIKEY}`;
     const response = await fetch(url);
 
     if (!response.ok) throw new Error(`Tile request failed: ${response.status}`);
 
     const buffer = await response.buffer();
 
-    // Process the image to shift toward blue tones
+    // Optional: apply processing (blue tone shift)
     const processedBuffer = await sharp(buffer)
       .modulate({
-        hue: 120, // Shift hues toward blue (120° shift from green)
-        saturation: 1.3, // Boost saturation for vibrant blue
-        brightness: 1, // Maintain brightness
+        hue: 120, // hue shift
+        saturation: 1.3,
+        brightness: 1,
       })
       .toBuffer();
 
-    // Save the processed image to cache
+    // Save to cache
     fs.mkdirSync(filePath, { recursive: true });
     fs.writeFileSync(fileName, processedBuffer);
 
