@@ -21,32 +21,45 @@ app.use(morgan("dev"));
 // Serve cached tiles or fetch from Thunderforest
 app.get("/tiles/:z/:x/:y", async (req, res) => {
   const { z, x, y } = req.params;
-  const filePath = path.join(CACHE_DIR, z, x);
-  const fileName = path.join(filePath, `${y}.png`);
+  const isDark =
+    req.query.dark === "1" ||
+    req.query.dark === "true" ||
+    req.query.dark === "yes";
+
+  // pick style
+  const style = isDark ? "transport-dark" : "transport";
+
+  // separate cache for light/dark
+  const styleDir = path.join(CACHE_DIR, style, z, x);
+  const fileName = path.join(styleDir, `${y}.png`);
 
   if (fs.existsSync(fileName)) {
     return res.sendFile(fileName);
   }
 
   try {
-    const url = `https://tile.thunderforest.com/transport/${z}/${x}/${y}.png?apikey=${THUNDERFOREST_APIKEY}`;
+    const url = `https://tile.thunderforest.com/${style}/${z}/${x}/${y}.png?apikey=${THUNDERFOREST_APIKEY}`;
     const response = await fetch(url);
 
     if (!response.ok) throw new Error(`Tile request failed: ${response.status}`);
 
     const buffer = await response.buffer();
 
-    // Optional: apply processing (blue tone shift)
-    const processedBuffer = await sharp(buffer)
-      .modulate({
-        hue: 120, // hue shift
-        saturation: 1.3,
-        brightness: 1,
-      })
-      .toBuffer();
+    let processedBuffer = buffer;
+
+    // Only apply color tweak for normal style
+    if (!isDark) {
+      processedBuffer = await sharp(buffer)
+        .modulate({
+          hue: 120,
+          saturation: 1.3,
+          brightness: 1,
+        })
+        .toBuffer();
+    }
 
     // Save to cache
-    fs.mkdirSync(filePath, { recursive: true });
+    fs.mkdirSync(styleDir, { recursive: true });
     fs.writeFileSync(fileName, processedBuffer);
 
     res.setHeader("Content-Type", "image/png");
